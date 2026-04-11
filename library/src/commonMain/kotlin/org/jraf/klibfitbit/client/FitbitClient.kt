@@ -25,14 +25,16 @@
 
 package org.jraf.klibfitbit.client
 
-import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalDate
 import org.jraf.klibfitbit.client.configuration.ClientConfiguration
 import org.jraf.klibfitbit.client.configuration.OAuthTokens
 import org.jraf.klibfitbit.internal.client.FitbitClientImpl
 import org.jraf.klibfitbit.model.Activity
-import org.jraf.klibfitbit.model.ActivityType
+import org.jraf.klibfitbit.model.ExerciseType
 import org.jraf.klibfitbit.model.OAuthAuthorizationUrlResult
 import kotlin.time.Duration
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 interface FitbitClient {
   companion object {
@@ -49,11 +51,12 @@ interface FitbitClient {
     authorizationCallbackUrl: String,
   )
 
-  suspend fun getActivityList(afterDate: LocalDateTime): List<Activity>
+  suspend fun getActivityList(date: LocalDate): List<Activity>
 
+  @OptIn(ExperimentalTime::class)
   suspend fun createActivity(
-    activityType: ActivityType,
-    start: LocalDateTime,
+    exerciseType: ExerciseType,
+    start: Instant,
     duration: Duration,
     distanceMeters: Double,
   )

@@ -24,17 +24,15 @@
  */
 
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.atTime
 import kotlinx.datetime.toLocalDateTime
 import org.jraf.klibfitbit.client.FitbitClient
 import org.jraf.klibfitbit.client.configuration.ClientConfiguration
 import org.jraf.klibfitbit.client.configuration.HttpConfiguration
 import org.jraf.klibfitbit.client.configuration.HttpLoggingLevel
 import org.jraf.klibfitbit.client.configuration.OAuthTokens
-import org.jraf.klibfitbit.model.ActivityType
+import org.jraf.klibfitbit.model.ExerciseType
 import org.jraf.klibnanolog.logd
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 
@@ -71,13 +69,13 @@ suspend fun main(av: Array<String>) {
 
   // Create new activity
   fitbitClient.createActivity(
-    activityType = ActivityType.TreadmillWalk,
-    start = (Clock.System.now() - 12.minutes).toLocalDateTime(TimeZone.currentSystemDefault()),
+    exerciseType = ExerciseType.WALKING,
+    start = (Clock.System.now() - 12.minutes),
     duration = 10.minutes,
     distanceMeters = 500.0,
   )
 
   // Get all activities from yesterday
-  val yesterday = (Clock.System.now() - 1.days).toLocalDateTime(TimeZone.currentSystemDefault()).date
-  logd(fitbitClient.getActivityList(yesterday.atTime(0, 0, 0)).sumOf { it.distanceMeters }.toString())
+  val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+  logd(fitbitClient.getActivityList(today).sumOf { it.distanceMeters }.toString())
 }

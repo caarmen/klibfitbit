@@ -36,9 +36,19 @@ import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.Parameters
 import io.ktor.http.contentType
-import org.jraf.klibfitbit.internal.json.JsonActivityPage
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.offsetAt
+import org.jraf.klibfitbit.internal.json.JsonDataPoint
+import org.jraf.klibfitbit.internal.json.JsonExercise
+import org.jraf.klibfitbit.internal.json.JsonExercises
+import org.jraf.klibfitbit.internal.json.JsonInterval
 import org.jraf.klibfitbit.internal.json.JsonOAuthTokens
 import org.jraf.klibfitbit.internal.json.JsonRefreshTokenResponse
+import org.jraf.klibfitbit.internal.json.MetricsSummary
+import org.jraf.klibfitbit.model.ExerciseType
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 internal class FitbitService(
   private val httpClient: HttpClient,
@@ -91,33 +101,49 @@ internal class FitbitService(
   }
 
   // https://dev.fitbit.com/build/reference/web-api/activity/get-activity-log-list/
-  suspend fun getActivityList(afterDate: String): JsonActivityPage {
-    return httpClient.get("$URL_BASE/1/user/-/activities/list.json") {
+  suspend fun getActivityList(startDate: String, endDate: String): JsonExercises {
+    return httpClient.get("$URL_BASE/v4/users/me/dataTypes/exercise/dataPoints") {
       contentType(ContentType.Application.Json)
-      parameter("afterDate", afterDate)
-      parameter("sort", "desc")
-      parameter("offset", "0")
-      parameter("limit", "50")
+      parameter(
+        "filter",
+        "exercise.interval.civil_start_time >= $startDate AND exercise.interval.civil_start_time < $endDate",
+      )
     }.body()
   }
 
   // https://dev.fitbit.com/build/reference/web-api/activity/create-activity-log/
+  @OptIn(ExperimentalTime::class)
   suspend fun createActivity(
-    activityId: Long,
-    startTime: String,
+    exerciseType: ExerciseType,
+    start: Instant,
     durationMillis: Long,
-    date: String,
-    distance: Double,
-    distanceUnit: String,
+    distanceMillimeters: Int,
   ) {
-    httpClient.post("$URL_BASE/1/user/-/activities.json") {
+    httpClient.post("$URL_BASE/v4/users/me/dataTypes/exercise/dataPoints") {
       contentType(ContentType.Application.Json)
-      parameter("activityId", activityId)
-      parameter("startTime", startTime)
-      parameter("durationMillis", durationMillis)
-      parameter("date", date)
-      parameter("distance", distance)
-      parameter("distanceUnit", distanceUnit)
+      setBody(
+        JsonDataPoint.Exercise(
+          name = "",
+          exercise = JsonExercise(
+            interval = JsonInterval(
+              startTime = start,
+              startUtcOffset = start.offsetInSeconds(),
+              endTime = start.plus(durationMillis.milliseconds),
+              endUtcOffset = start.plus(durationMillis.milliseconds).offsetInSeconds(),
+            ),
+            activeDuration = "${(durationMillis / 1000)}s",
+            exerciseType = exerciseType,
+            displayName = "My exercise", // Doesn't matter, it's overridden by Google
+            metricsSummary = MetricsSummary(
+              caloriesKcal = 0f,
+              distanceMillimeters = distanceMillimeters,
+            ),
+          ),
+        ),
+      )
     }
   }
 }
+
+@OptIn(ExperimentalTime::class)
+private fun Instant.offsetInSeconds(): String = "${TimeZone.currentSystemDefault().offsetAt(this).totalSeconds}s"

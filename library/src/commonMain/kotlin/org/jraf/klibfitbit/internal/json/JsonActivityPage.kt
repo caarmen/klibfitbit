@@ -25,20 +25,77 @@
 
 package org.jraf.klibfitbit.internal.json
 
+import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonContentPolymorphicSerializer
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.jsonObject
+import org.jraf.klibfitbit.model.ExerciseType
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 @Serializable
-data class JsonActivityPage(
-  val activities: List<JsonActivity>,
+data class JsonInterval @OptIn(ExperimentalTime::class) constructor(
+  val startTime: Instant,
+  val startUtcOffset: String,
+  val endTime: Instant,
+  val endUtcOffset: String,
 )
 
 @Serializable
-data class JsonActivity(
-  val logId: Long,
-  val activityName: String,
-  val activityTypeId: Long,
-  val calories: Int,
-  val duration: Long,
-  val startTime: String,
-  val distance: Double,
+data class MetricsSummary(
+  val caloriesKcal: Float,
+  val distanceMillimeters: Int = 0,
+)
+
+@Serializable
+data class JsonExercise(
+  val interval: JsonInterval,
+  val activeDuration: String,
+  val exerciseType: ExerciseType,
+  val displayName: String,
+  val metricsSummary: MetricsSummary,
+)
+
+@Serializable
+data class JsonDistance(
+  val millimeters: Int,
+  val interval: JsonInterval,
+)
+
+@Serializable(with = DataPointSerializer::class)
+sealed class JsonDataPoint {
+  /**
+   * A DataPoint can have either an exercise or a distance attribute, but not both.
+   * See https://developers.google.com/health/reference/rest/v4/users.dataTypes.dataPoints#DataPoint
+   * Other types are possible too, but we only support these two for now.
+   */
+  abstract val name: String
+
+  @Serializable
+  data class Exercise(
+    override val name: String,
+    val exercise: JsonExercise,
+  ) : JsonDataPoint()
+
+  @Serializable
+  data class Distance(
+    override val name: String,
+    val distance: JsonDistance,
+  ) : JsonDataPoint()
+}
+
+object DataPointSerializer : JsonContentPolymorphicSerializer<JsonDataPoint>(JsonDataPoint::class) {
+  override fun selectDeserializer(element: JsonElement): DeserializationStrategy<JsonDataPoint> {
+    return when {
+      "exercise" in element.jsonObject -> JsonDataPoint.Exercise.serializer()
+      "distance" in element.jsonObject -> JsonDataPoint.Distance.serializer()
+      else -> error("Unhandled class $element")
+    }
+  }
+}
+
+@Serializable
+data class JsonExercises(
+  val dataPoints: List<JsonDataPoint.Exercise> = emptyList(),
 )
