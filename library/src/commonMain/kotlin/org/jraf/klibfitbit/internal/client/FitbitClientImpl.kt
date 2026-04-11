@@ -38,16 +38,19 @@ import io.ktor.client.plugins.logging.Logging
 import io.ktor.http.URLBuilder
 import io.ktor.http.Url
 import io.ktor.serialization.kotlinx.json.json
-import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.format.FormatStringsInDatetimeFormats
 import kotlinx.datetime.format.byUnicodePattern
+import kotlinx.datetime.plus
 import kotlinx.serialization.json.Json
 import okio.ByteString.Companion.toByteString
 import org.jraf.klibfitbit.client.FitbitClient
 import org.jraf.klibfitbit.client.configuration.ClientConfiguration
 import org.jraf.klibfitbit.client.configuration.HttpLoggingLevel
 import org.jraf.klibfitbit.client.configuration.OAuthTokens
-import org.jraf.klibfitbit.internal.json.JsonActivity
+import org.jraf.klibfitbit.internal.json.JsonDataPoint
+import org.jraf.klibfitbit.internal.json.JsonExercise
 import org.jraf.klibfitbit.model.Activity
 import org.jraf.klibfitbit.model.ActivityType
 import org.jraf.klibfitbit.model.OAuthAuthorizationUrlResult
@@ -55,7 +58,6 @@ import org.jraf.klibnanolog.logd
 import kotlin.random.Random
 import kotlin.random.nextInt
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -105,30 +107,26 @@ internal class FitbitClientImpl(
           }
 
           refreshTokens {
-            val jsonOAuthTokens = service.newToken(
+            val refreshTokenResponse = service.newToken(
               oAuthRefreshToken = clientConfiguration.oAuthTokens!!.refreshToken,
               clientId = clientConfiguration.clientId,
+              clientSecret = clientConfiguration.clientSecret,
             )
-
+            val oAuthTokens = OAuthTokens(
+              accessToken = refreshTokenResponse.access_token,
+              refreshToken = clientConfiguration.oAuthTokens!!.refreshToken,
+            )
             // Update client configuration with new tokens
             clientConfiguration = clientConfiguration.copy(
-              oAuthTokens = OAuthTokens(
-                accessToken = jsonOAuthTokens.access_token,
-                refreshToken = jsonOAuthTokens.refresh_token,
-              ),
+              oAuthTokens = oAuthTokens,
             )
 
             // Inform the client that new tokens are available
-            onOAuthTokensRenewed(
-              OAuthTokens(
-                accessToken = jsonOAuthTokens.access_token,
-                refreshToken = jsonOAuthTokens.refresh_token,
-              ),
-            )
+            onOAuthTokensRenewed(oAuthTokens)
 
             BearerTokens(
-              accessToken = jsonOAuthTokens.access_token,
-              refreshToken = jsonOAuthTokens.refresh_token,
+              accessToken = oAuthTokens.accessToken,
+              refreshToken = oAuthTokens.refreshToken,
             )
           }
         }
@@ -163,13 +161,14 @@ internal class FitbitClientImpl(
     // A SHA-256 hash of the code verifier, base64url encoded with padding omitted, called the code challenge
     val codeChallenge = randomLetterList.map { it.code.toByte() }.toByteArray().toByteString().sha256().base64Url().removeSuffix("=")
 
-    val url = URLBuilder("${FitbitService.URL_BASE}/oauth2/authorize").apply {
+    val url = URLBuilder("https://accounts.google.com/o/oauth2/v2/auth").apply {
       parameters.apply {
         append("client_id", clientConfiguration.clientId)
         append("response_type", "code")
         append("scope", scopes.joinToString(" "))
         append("code_challenge_method", "S256")
         append("code_challenge", codeChallenge)
+        append("redirect_uri", "http://localhost")
       }
     }.buildString()
 
@@ -189,6 +188,7 @@ internal class FitbitClientImpl(
       code = code,
       codeVerifier = oAuthAuthorizationUrlResult.codeVerifier,
       clientId = clientConfiguration.clientId,
+      clientSecret = clientConfiguration.clientSecret,
     )
     val oAuthTokens = OAuthTokens(
       accessToken = jsonOAuthTokens.access_token,
@@ -205,50 +205,52 @@ internal class FitbitClientImpl(
   }
 
   @OptIn(FormatStringsInDatetimeFormats::class)
-  override suspend fun getActivityList(afterDate: LocalDateTime): List<Activity> {
-    val dateTimeFormat = LocalDateTime.Format {
-      byUnicodePattern("yyyy-MM-dd'T'HH:mm:ss")
+  override suspend fun getActivityList(date: LocalDate): List<Activity> {
+    val dateTimeFormat = LocalDate.Format {
+      byUnicodePattern("yyyy-MM-dd")
     }
-    val afterDateString = dateTimeFormat.format(afterDate)
-    val jsonActivityPage = service.getActivityList(afterDateString)
-    return jsonActivityPage.activities.map { it.toActivity() }
+    val startDateString = dateTimeFormat.format(date)
+    val endDate = date.plus(1, DateTimeUnit.DAY)
+    val endDateString = dateTimeFormat.format(endDate)
+
+    val jsonActivityPage = service.getActivityList(startDateString, endDateString)
+    return jsonActivityPage.dataPoints.map { it.toActivity() }
   }
 
-  @OptIn(FormatStringsInDatetimeFormats::class)
+  @OptIn(FormatStringsInDatetimeFormats::class, ExperimentalTime::class)
   override suspend fun createActivity(
-    activityType: ActivityType,
-    start: LocalDateTime,
+    exerciseType: String,
+    start: Instant,
     duration: Duration,
     distanceMeters: Double,
   ) {
-    val timeFormat = LocalDateTime.Format {
-      byUnicodePattern("HH:mm")
-    }
-    val dateFormat = LocalDateTime.Format {
-      byUnicodePattern("yyyy-MM-dd")
-    }
-    val startTimeString = timeFormat.format(start)
-    val dateString = dateFormat.format(start)
     service.createActivity(
-      activityId = activityType.id,
-      startTime = startTimeString,
+      exerciseType = exerciseType,
+      start = start,
       durationMillis = duration.inWholeMilliseconds,
-      date = dateString,
-      distance = distanceMeters / 1000.0,
-      distanceUnit = "Kilometer",
+      distanceMillimeters = (distanceMeters * 1000).toInt(),
     )
   }
 }
 
+private fun JsonExercise.activityTypeId(): Int {
+  return when (this.exerciseType) {
+    "WALKING" -> ActivityType.Walk.ordinal
+    "BIKING" -> ActivityType.Bike.ordinal
+    else -> 99999
+  }
+}
+
 @OptIn(ExperimentalTime::class)
-private fun JsonActivity.toActivity(): Activity {
+private fun JsonDataPoint.toActivity(): Activity {
   return Activity(
-    id = this.logId.toString(),
-    activityName = this.activityName,
-    activityTypeId = this.activityTypeId.toString(),
-    calories = this.calories,
-    duration = this.duration.milliseconds,
-    startTime = Instant.parse(this.startTime),
-    distanceMeters = this.distance * 1000.0,
+    id = this.name.substringAfterLast("/"),
+    activityName = this.exercise.displayName,
+    activityTypeId = this.exercise.activityTypeId().toString(),
+    calories = this.exercise.metricsSummary.caloriesKcal.toInt(),
+    // Duration is like "123s"
+    duration = Duration.parse(this.exercise.activeDuration),
+    startTime = this.exercise.interval.startTime,
+    distanceMeters = this.exercise.metricsSummary.distanceMillimeters / 1000.0,
   )
 }
