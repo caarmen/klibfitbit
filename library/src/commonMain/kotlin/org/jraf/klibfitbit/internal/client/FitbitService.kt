@@ -38,16 +38,22 @@ import io.ktor.http.Parameters
 import io.ktor.http.contentType
 import org.jraf.klibfitbit.internal.json.JsonActivityPage
 import org.jraf.klibfitbit.internal.json.JsonOAuthTokens
+import org.jraf.klibfitbit.internal.json.JsonRefreshTokenResponse
 
 internal class FitbitService(
   private val httpClient: HttpClient,
 ) {
   companion object {
-    internal const val URL_BASE = "https://api.fitbit.com"
+    internal const val URL_BASE = "https://health.googleapis.com"
   }
 
-  suspend fun createOAuthTokens(code: String, codeVerifier: String, clientId: String): JsonOAuthTokens {
-    return httpClient.post("$URL_BASE/oauth2/token") {
+  suspend fun createOAuthTokens(
+    code: String,
+    codeVerifier: String,
+    clientId: String,
+    clientSecret: String
+  ): JsonOAuthTokens {
+    return httpClient.post("https://oauth2.googleapis.com/token") {
       setBody(
         FormDataContent(
           Parameters.build {
@@ -55,6 +61,8 @@ internal class FitbitService(
             append("code_verifier", codeVerifier)
             append("grant_type", "authorization_code")
             append("client_id", clientId)
+            append("redirect_uri", "http://localhost")
+            append("client_secret", clientSecret)
           },
         ),
       )
@@ -64,14 +72,15 @@ internal class FitbitService(
     }.body()
   }
 
-  suspend fun newToken(oAuthRefreshToken: String, clientId: String): JsonOAuthTokens {
-    return httpClient.post("$URL_BASE/oauth2/token") {
+  suspend fun newToken(oAuthRefreshToken: String, clientId: String, clientSecret: String): JsonRefreshTokenResponse {
+    return httpClient.post("https://oauth2.googleapis.com/token") {
       setBody(
         FormDataContent(
           Parameters.build {
             append("grant_type", "refresh_token")
             append("client_id", clientId)
             append("refresh_token", oAuthRefreshToken)
+            append("client_secret", clientSecret)
           },
         ),
       )

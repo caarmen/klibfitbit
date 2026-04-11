@@ -105,30 +105,26 @@ internal class FitbitClientImpl(
           }
 
           refreshTokens {
-            val jsonOAuthTokens = service.newToken(
+            val refreshTokenResponse = service.newToken(
               oAuthRefreshToken = clientConfiguration.oAuthTokens!!.refreshToken,
               clientId = clientConfiguration.clientId,
+              clientSecret = clientConfiguration.clientSecret,
             )
-
+            val oAuthTokens = OAuthTokens(
+              accessToken = refreshTokenResponse.access_token,
+              refreshToken = clientConfiguration.oAuthTokens!!.refreshToken,
+            )
             // Update client configuration with new tokens
             clientConfiguration = clientConfiguration.copy(
-              oAuthTokens = OAuthTokens(
-                accessToken = jsonOAuthTokens.access_token,
-                refreshToken = jsonOAuthTokens.refresh_token,
-              ),
+              oAuthTokens = oAuthTokens,
             )
 
             // Inform the client that new tokens are available
-            onOAuthTokensRenewed(
-              OAuthTokens(
-                accessToken = jsonOAuthTokens.access_token,
-                refreshToken = jsonOAuthTokens.refresh_token,
-              ),
-            )
+            onOAuthTokensRenewed(oAuthTokens)
 
             BearerTokens(
-              accessToken = jsonOAuthTokens.access_token,
-              refreshToken = jsonOAuthTokens.refresh_token,
+              accessToken = oAuthTokens.accessToken,
+              refreshToken = oAuthTokens.refreshToken,
             )
           }
         }
@@ -163,13 +159,14 @@ internal class FitbitClientImpl(
     // A SHA-256 hash of the code verifier, base64url encoded with padding omitted, called the code challenge
     val codeChallenge = randomLetterList.map { it.code.toByte() }.toByteArray().toByteString().sha256().base64Url().removeSuffix("=")
 
-    val url = URLBuilder("${FitbitService.URL_BASE}/oauth2/authorize").apply {
+    val url = URLBuilder("https://accounts.google.com/o/oauth2/v2/auth").apply {
       parameters.apply {
         append("client_id", clientConfiguration.clientId)
         append("response_type", "code")
         append("scope", scopes.joinToString(" "))
         append("code_challenge_method", "S256")
         append("code_challenge", codeChallenge)
+        append("redirect_uri", "http://localhost")
       }
     }.buildString()
 
@@ -189,6 +186,7 @@ internal class FitbitClientImpl(
       code = code,
       codeVerifier = oAuthAuthorizationUrlResult.codeVerifier,
       clientId = clientConfiguration.clientId,
+      clientSecret = clientConfiguration.clientSecret,
     )
     val oAuthTokens = OAuthTokens(
       accessToken = jsonOAuthTokens.access_token,

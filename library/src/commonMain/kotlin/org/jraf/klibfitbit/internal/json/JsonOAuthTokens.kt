@@ -32,3 +32,8 @@ data class JsonOAuthTokens(
   val access_token: String,
   val refresh_token: String,
 )
+
+@Serializable
+data class JsonRefreshTokenResponse(
+    val access_token: String,
+)

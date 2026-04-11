@@ -44,9 +44,10 @@ suspend fun main(av: Array<String>) {
     ClientConfiguration(
       clientId = av[0],
       // Pass null the first time / pass accessToken/refreshToken that are logged below the next times
+      clientSecret = av[1],
       oAuthTokens = OAuthTokens(
-        accessToken = av[1],
-        refreshToken = av[2],
+        accessToken = av[2],
+        refreshToken = av[3],
       ),
       httpConfiguration = HttpConfiguration(
         loggingLevel = HttpLoggingLevel.ALL,
@@ -58,8 +59,11 @@ suspend fun main(av: Array<String>) {
   }
 
   // Do this only the first time:
-
-//  val authorizationUrlResult = fitbitClient.oAuthCreateAuthorizationUrl(listOf("activity"))
+//
+//  val authorizationUrlResult = fitbitClient.oAuthCreateAuthorizationUrl(listOf(
+//      "https://www.googleapis.com/auth/googlehealth.activity_and_fitness",
+//      "https://www.googleapis.com/auth/googlehealth.sleep",
+//  ))
 //  println("Please visit this URL: ${authorizationUrlResult.authorizeUrl}")
 //  println("Enter the callback URL:")
 //  val callbackUrl = readln().trim()

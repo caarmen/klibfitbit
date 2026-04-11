@@ -27,6 +27,10 @@ package org.jraf.klibfitbit.client.configuration
 
 data class ClientConfiguration(
   val clientId: String,
+  // Google requires client_secret even for desktop applications
+  // https://developers.google.com/identity/protocols/oauth2/native-app
+  // "The client_secret is not applicable to requests from clients registered as Android, iOS, or Chrome applications"
+  val clientSecret: String,
   val oAuthTokens: OAuthTokens?,
   val httpConfiguration: HttpConfiguration = HttpConfiguration(),
 )
