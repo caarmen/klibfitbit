@@ -57,17 +57,21 @@ suspend fun main(av: Array<String>) {
   }
 
   // Do this only the first time:
-
-//  val authorizationUrlResult = fitbitClient.oAuthCreateAuthorizationUrl(listOf(
-//      "https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly",
-//      "https://www.googleapis.com/auth/googlehealth.activity_and_fitness.writeonly",
-//      "https://www.googleapis.com/auth/googlehealth.sleep.readonly",
-//      "https://www.googleapis.com/auth/googlehealth.sleep.writeonly",
-//  ))
-//  println("Please visit this URL: ${authorizationUrlResult.authorizeUrl}")
-//  println("Enter the callback URL:")
-//  val callbackUrl = readln().trim()
-//  fitbitClient.oAuthFetchTokens(authorizationUrlResult, callbackUrl)
+  val fetchTokens = false
+  if (fetchTokens) {
+    val authorizationUrlResult = fitbitClient.oAuthCreateAuthorizationUrl(
+      listOf(
+        "https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly",
+        "https://www.googleapis.com/auth/googlehealth.activity_and_fitness.writeonly",
+        "https://www.googleapis.com/auth/googlehealth.sleep.readonly",
+        "https://www.googleapis.com/auth/googlehealth.sleep.writeonly",
+      ),
+    )
+    println("Please visit this URL: ${authorizationUrlResult.authorizeUrl}")
+    println("Enter the callback URL:")
+    val callbackUrl = readln().trim()
+    fitbitClient.oAuthFetchTokens(authorizationUrlResult, callbackUrl)
+  }
 
   // Create new activity
   fitbitClient.createActivity(
