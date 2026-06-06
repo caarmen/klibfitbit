@@ -57,10 +57,12 @@ suspend fun main(av: Array<String>) {
   }
 
   // Do this only the first time:
-//
+
 //  val authorizationUrlResult = fitbitClient.oAuthCreateAuthorizationUrl(listOf(
-//      "https://www.googleapis.com/auth/googlehealth.activity_and_fitness",
-//      "https://www.googleapis.com/auth/googlehealth.sleep",
+//      "https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly",
+//      "https://www.googleapis.com/auth/googlehealth.activity_and_fitness.writeonly",
+//      "https://www.googleapis.com/auth/googlehealth.sleep.readonly",
+//      "https://www.googleapis.com/auth/googlehealth.sleep.writeonly",
 //  ))
 //  println("Please visit this URL: ${authorizationUrlResult.authorizeUrl}")
 //  println("Enter the callback URL:")
