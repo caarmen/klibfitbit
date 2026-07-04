@@ -75,10 +75,10 @@ suspend fun main(av: Array<String>) {
 
   // Create new activity
   fitbitClient.createActivity(
-    exerciseType = ExerciseType.WALKING,
-    start = (Clock.System.now() - 12.minutes),
-    duration = 10.minutes,
-    distanceMeters = 500.0,
+    exerciseType = ExerciseType.TREADMILL,
+    start = (Clock.System.now() - 5.minutes),
+    duration = 3.minutes,
+    distanceMeters = 361.3,
   )
 
   // Get all activities from yesterday

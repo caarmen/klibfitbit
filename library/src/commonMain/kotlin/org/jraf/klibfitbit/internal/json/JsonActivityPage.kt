@@ -44,7 +44,7 @@ data class JsonInterval @OptIn(ExperimentalTime::class) constructor(
 
 @Serializable
 data class MetricsSummary(
-  val caloriesKcal: Float,
+  val caloriesKcal: Float=0f,
   val distanceMillimeters: Int = 0,
 )
 
