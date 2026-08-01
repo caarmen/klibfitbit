@@ -75,7 +75,7 @@ suspend fun main(av: Array<String>) {
 
   // Create new activity
   fitbitClient.createActivity(
-    exerciseType = ExerciseType.TREADMILL,
+    exerciseType = ExerciseType.TREADMILL_WALK,
     start = (Clock.System.now() - 5.minutes),
     duration = 3.minutes,
     distanceMeters = 361.3,
